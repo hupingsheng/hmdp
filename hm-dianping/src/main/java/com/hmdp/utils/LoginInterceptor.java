@@ -7,6 +7,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.util.Objects;
 
 public class LoginInterceptor implements HandlerInterceptor {
 
@@ -15,7 +16,7 @@ public class LoginInterceptor implements HandlerInterceptor {
         //1、获取session
         HttpSession session = request.getSession();
         //2.获取session中的用户
-        User user = (User) session.getAttribute("user");
+        Object user = session.getAttribute("user");
         //3.判断用户是否存在
         if(user == null){
             // 4. 不存在，拦截，false 返回401状态码
@@ -23,7 +24,7 @@ public class LoginInterceptor implements HandlerInterceptor {
             return false;
         }
         // 5.存在，保存用户信息到ThreadLocal
-        UserHolder.saveUser(user);
+        UserHolder.saveUser((UserDTO)user);
         // 6.放行
         return true;
     }
