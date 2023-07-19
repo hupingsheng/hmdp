@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
 
+import static com.baomidou.mybatisplus.core.toolkit.Wrappers.query;
+
 /**
  * <p>
  * 前端控制器
@@ -40,7 +42,7 @@ public class UserController {
     @PostMapping("code")
     public Result sendCode(@RequestParam("phone") String phone, HttpSession session) {
         // 发送短信验证码并保存验证码
-        
+
         //1. 检验手机号是否合法
         if(RegexUtils.isPhoneInvalid(phone)){
             return Result.fail("手机号格式错误");
@@ -60,11 +62,14 @@ public class UserController {
     /**
      * 登录功能
      * @param loginForm 登录参数，包含手机号、验证码；或者手机号、密码
+     *                  {phone: "xxxx", code: "101451"}
+     *                  http://localhost:8080/api/user/login   POST
      */
     @PostMapping("/login")
     public Result login(@RequestBody LoginFormDTO loginForm, HttpSession session){
-        // TODO 实现登录功能
-        return Result.fail("功能未完成");
+
+        return userService.login(loginForm, session);
+
     }
 
     /**
