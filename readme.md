@@ -4,7 +4,7 @@
 
 
 
-**登录状态的校验**
+### **登录状态的校验**
 
 每次http请求访问都应该对登录状态进行校验【即是否是已登录用户】，这里合理的想到用拦截器对每一个controller的访问进行统一拦截。
 
@@ -83,3 +83,43 @@ public class MvcConfig implements WebMvcConfigurer {
 }
 ```
 
+
+
+
+
+### **关于当前登录用户信息的的session存储的细粒度的控制**
+
+优化前
+
+![image-20230720223109776](readme/image-20230720223109776.png)
+
+优化后
+
+![image-20230720223056276](readme/image-20230720223056276.png)
+
+只存储必要的信息，比如id
+
+- 一方面存储少是为了信息的安全考虑，避免将密码等敏感信息泄漏出去
+
+- 另一方面，当前的登陆用户信息都要存储到session和ThreadLocal的tomcat服务器中，存储过多信息，占用内存空间。
+
+因此在登录后的`session.setAttribute("user", user);`时就要修改，后续的存入ThreadLocal自然就是只存必要的属性
+
+更改为
+
+```java
+import cn.hutool.core.bean.BeanUtil;
+
+session.setAttribute("user", BeanUtil.copyProperties(user, UserDTO.class));
+```
+
+```java
+@Data
+public class UserDTO {
+    private Long id;
+    private String nickName;
+    private String icon;
+}
+```
+
+其中`BeanUtil.copyProperties`是hutool的一个工具类，是将类的属性进行有选择性的赋值，将需要的对象属性构成一个新的类，这个工具会自动将类中的属性选择性赋值。ps：盲猜利用反射完成。
