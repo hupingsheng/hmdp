@@ -46,20 +46,7 @@ public class UserController {
     public Result sendCode(@RequestParam("phone") String phone, HttpSession session) {
         // 发送短信验证码并保存验证码
 
-        //1. 检验手机号是否合法
-        if(RegexUtils.isPhoneInvalid(phone)){
-            return Result.fail("手机号格式错误");
-        }
-
-        //2. 生成6位验证码
-        String code = RandomUtil.randomNumbers(6);
-
-        //3. 存储到服务器的本地session
-        session.setAttribute("code", code);
-
-        // 4. 用日志打印模拟发送验证码
-        log.debug("验证码是{}", code);
-        return Result.ok();
+        return userService.sendCode(phone, session);
     }
 
     /**
