@@ -46,13 +46,13 @@ public class CacheClient {
     }
 
     /**
-     * redis 缓存穿透工具类
-     * @param keyPrefix
+     * redis 查询数据  缓存穿透工具类
+     * @param keyPrefix  redis的key前缀
      * @param id
-     * @param type
-     * @param dbFallback
-     * @param time
-     * @param unit
+     * @param type         查询数据库的返回类型
+     * @param dbFallback  查询数据库的调用函数
+     * @param time         设置过期时间
+     * @param unit          时间单位
      * @return
      * @param <R>
      * @param <ID>
@@ -71,14 +71,14 @@ public class CacheClient {
             return JSONUtil.toBean(json, type);
         }
 
-        //3. 命中的是否是空值 ”“
+        //3. 命中的是否是空值   ”“  redis中的value存“” 就是防止缓存穿透
         if(json != null){
             return null;
         }
 
-        //  4. 不存在，根据id查询数据库
+        //  4. redis不存在，根据id查询数据库
         R r = dbFallback.apply(id);
-        //  5. 不存在，返回错误
+        //  5. 数据库也不存在，照样向redis存入空值，返回错误
         if(r == null){
             // 将空值写入redis
             stringRedisTemplate.opsForValue().set(key, "", RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
@@ -101,6 +101,18 @@ public class CacheClient {
     }
 
 
+    /**
+     *
+     * @param keyPrefix
+     * @param id
+     * @param type
+     * @param dbFallback
+     * @param time
+     * @param unit
+     * @return
+     * @param <R>
+     * @param <ID>
+     */
     public <R, ID> R queryWithLogicExpire(String keyPrefix, ID id, Class<R> type, Function<ID, R> dbFallback,
                                           Long time, TimeUnit unit
                                           ){
