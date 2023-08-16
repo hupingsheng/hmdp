@@ -93,7 +93,9 @@ public class BlogController {
 
     private void isBlogLiked(Blog blog) {
         String key = BLOG_LIKED_KEY+ blog.getId();
-        Long userId = UserHolder.getUser().getId();
+        UserDTO user = UserHolder.getUser();
+        if(user == null) return;
+        Long userId = user.getId();
         Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
         blog.setIsLike(score != null);
     }
