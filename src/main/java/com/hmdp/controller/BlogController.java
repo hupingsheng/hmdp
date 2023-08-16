@@ -18,6 +18,8 @@ import javax.annotation.Resource;
 import java.sql.SQLTransactionRollbackException;
 import java.util.List;
 
+import static com.hmdp.utils.RedisConstants.BLOG_LIKED_KEY;
+
 /**
  * <p>
  * 前端控制器
@@ -90,10 +92,10 @@ public class BlogController {
     }
 
     private void isBlogLiked(Blog blog) {
-        String key = "blog:liked:" + blog.getId();
+        String key = BLOG_LIKED_KEY+ blog.getId();
         Long userId = UserHolder.getUser().getId();
-        Boolean isMember = stringRedisTemplate.opsForSet().isMember(key, userId.toString());
-        blog.setIsLike(BooleanUtil.isTrue(isMember));
+        Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+        blog.setIsLike(score != null);
     }
 
 
@@ -101,4 +103,10 @@ public class BlogController {
     public Result queryBlogById(@PathVariable("id") Long id){
         return blogService.queryBlogById(id);
     }
+
+    @GetMapping("/likes/{id}")
+    public Result queryBlogLikes(@PathVariable("id") Long id) {
+        return blogService.queryBlogLikes(id);
+    }
+
 }

@@ -1,7 +1,10 @@
 package com.hmdp.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.BooleanUtil;
+import cn.hutool.core.util.StrUtil;
 import com.hmdp.dto.Result;
+import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Blog;
 import com.hmdp.entity.User;
 import com.hmdp.mapper.BlogMapper;
@@ -9,10 +12,16 @@ import com.hmdp.service.IBlogService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.UserHolder;
+import org.redisson.api.RObject;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.hmdp.utils.RedisConstants.BLOG_LIKED_KEY;
 
@@ -55,20 +64,44 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
 
         String key = BLOG_LIKED_KEY + id;
 
-        Boolean isMember = stringRedisTemplate.opsForSet().isMember(key ,userId.toString());
-        //未点赞
-        if(BooleanUtil.isFalse(isMember)){
+        Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+        //未点赞  zadd key value
+        if(score == null){
             Boolean isSuccess =  update().setSql("liked = liked + 1").eq("id", id).update();
             if(isSuccess){
-                stringRedisTemplate.opsForSet().add(key, userId.toString());
+                stringRedisTemplate.opsForZSet().add(key, userId.toString(), System.currentTimeMillis());
             }
         }else {
             Boolean isSuccess =  update().setSql("liked = liked - 1").eq("id", id).update();
             if(isSuccess){
-                stringRedisTemplate.opsForSet().remove(key, userId.toString());
+                stringRedisTemplate.opsForZSet().remove(key, userId.toString());
             }
         }
         return Result.ok();
+    }
+
+    @Override
+    public Result queryBlogLikes(Long id) {
+        // 查询top5的点赞用户 zrange key 0 4
+        String key = BLOG_LIKED_KEY + id;
+        Long userId = UserHolder.getUser().getId();
+        Set<String> top5 = stringRedisTemplate.opsForZSet().range(key, 0, 4);
+
+        if(top5 == null || top5.isEmpty()){
+            return Result.ok(Collections.emptyList());
+        }
+
+        // 解析出其中的用户id
+        List<Long> ids = top5.stream().map(Long::valueOf).collect(Collectors.toList());
+        String idStr = StrUtil.join(",", ids);
+        //根据用户id查询用户
+        List<UserDTO> userDTOS = userService.query()
+                .in("id", ids)
+                .last("ORDER BY FIELD(id," + idStr +")").list()
+                .stream()
+                .map(user -> BeanUtil.copyProperties(user, UserDTO.class))
+                .collect(Collectors.toList());
+        return Result.ok(userDTOS);
     }
 
     private void queryBlogUser(Blog blog) {
@@ -80,8 +113,13 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
 
     private void isBlogLiked(Blog blog){
         String key = BLOG_LIKED_KEY+ blog.getId();
-        Long userId = UserHolder.getUser().getId();
-        Boolean isMember = stringRedisTemplate.opsForSet().isMember(key, userId.toString());
-        blog.setIsLike(BooleanUtil.isTrue(isMember));
+        UserDTO user = UserHolder.getUser();
+        if(user == null){
+            // 用户未登录，无需查询
+            return;
+        }
+        Long userId = user.getId();
+        Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+        blog.setIsLike(score != null);
     }
 }
